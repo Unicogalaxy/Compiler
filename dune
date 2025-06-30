@@ -1,0 +1,3 @@
+(executable
+ (name main)
+ (libraries parse_project))
