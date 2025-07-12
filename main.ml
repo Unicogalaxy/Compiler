@@ -1,61 +1,47 @@
 (* main.ml *)
-(* The main entry point for the ToyC compiler. *)
-(* This version connects all parts: Parser -> Typechecker -> Codegen *)
+(* CORRECTED: This version now reads from standard input (stdin)
+   and writes the resulting assembly to standard output (stdout). *)
 
 open Parse_project
-(* open Ast *)
 open Printf
 
-
 let () =
-  (* 1. Check for the correct number of command-line arguments *)
-  if Array.length Sys.argv <> 2 then
-    begin
-      eprintf "Usage: %s <source_file.tc>\n" Sys.argv.(0);
-      exit 1
-    end;
+  (* 1. 直接从标准输入 stdin 创建词法分析器缓冲 *)
+  let lexbuf = Lexing.from_channel stdin in
 
-  let filename = Sys.argv.(1) in
-  let in_channel =
-    try open_in filename
-    with Sys_error msg ->
-      eprintf "Error: Cannot open file '%s': %s\n" filename msg;
-      exit 1
-  in
-
-  let lexbuf = Lexing.from_channel in_channel in
   try
-    (* 2. Run the parser on the lexer buffer to get the AST *)
+    (* 2. 运行解析器获取AST *)
     let ast = Parser.comp_unit Lexer.token lexbuf in
-    close_in in_channel;
 
-    (* 3. Run the type checker on the AST. It will exit on error. *)
+    (* 3. 运行类型检查器 *)
     Typechecker.type_check_program ast;
 
-    (* 4. If type checking succeeds, run the code generator. *)
+    (* 4. 运行代码生成器 *)
     let assembly_code = Codegen.codegen_program ast in
 
-    (* 5. Print the final assembly code to standard output. *)
+    (* 5. 将最终的汇编代码打印到标准输出 *)
     print_endline assembly_code
 
   with
   | Lexer.Error msg ->
-      (* Catch lexical errors *)
+      (* 错误信息输出到标准错误流 (stderr) *)
       eprintf "Lexical error at line %d, column %d: %s\n"
         lexbuf.lex_curr_p.pos_lnum
         (lexbuf.lex_curr_p.pos_cnum - lexbuf.lex_curr_p.pos_bol)
         msg;
-      close_in_noerr in_channel;
       exit 1
   | Parsing.Parse_error ->
-      (* Catch syntax errors *)
+      (* 错误信息输出到标准错误流 (stderr) *)
       eprintf "Syntax error at line %d, column %d, near token '%s'\n"
         lexbuf.lex_curr_p.pos_lnum
         (lexbuf.lex_curr_p.pos_cnum - lexbuf.lex_curr_p.pos_bol)
         (Lexing.lexeme lexbuf);
-      close_in_noerr in_channel;
+      exit 1
+  | Typechecker.Type_error msg ->
+      (* 错误信息输出到标准错误流 (stderr) *)
+      eprintf "Type error: %s\n" msg;
       exit 1
   | Failure msg ->
-      (* Catch other compiler errors, like from codegen *)
+      (* 其他编译器内部错误 *)
       eprintf "Compiler failure: %s\n" msg;
       exit 1
