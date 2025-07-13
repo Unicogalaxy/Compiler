@@ -1,5 +1,5 @@
 (* main.ml *)
-(* CORRECTED: This version now reads from standard input (stdin)
+(* This version reads from standard input (stdin)
    and writes the resulting assembly to standard output (stdout). *)
 
 open Parse_project

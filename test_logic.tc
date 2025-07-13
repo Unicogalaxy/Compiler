@@ -4,27 +4,26 @@ int main() {
   int c = 1; 
   int result = 0;
 
-  // Test 1: && and >
+  
   if (a > 5 && b > 15) {
-    result = result + 10; // result = 10
+    result = result + 10; 
   }
 
-  // Test 2: || and <
+
   if (a < 5 || b > 15) {
-    result = result + 20; // result = 30
+    result = result + 20; 
   }
 
-  // Test 3: ! (Not) and ==
+
   if (!(a == b)) {
-    result = result + 5;  // result = 35
+    result = result + 5; 
   }
 
-  // Test 4: Nested if and short-circuit &&
-  // a > 20 is false, so the second part (c == 1) should not be evaluated.
+  
   if (a > 20 && c == 1) {
-    result = result + 100; // This should not execute
+    result = result + 100; 
   } else {
-    result = result + 7;   // result = 42
+    result = result + 7;   
   }
 
   return result;

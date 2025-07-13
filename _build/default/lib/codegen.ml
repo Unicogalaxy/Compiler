@@ -15,41 +15,21 @@ let string_of_reg = function
   | T5 -> "t5" | T6 -> "t6"
 
 let argument_regs = [A0; A1; A2; A3; A4; A5; A6; A7]
-let caller_saved_regs = [RA; T0; T1; T2; T3; T4; T5; T6] @ argument_regs
 let callee_saved_regs = [S0; S1; S2; S3; S4; S5; S6; S7; S8; S9; S10; S11]
 
 (* 汇编指令 *)
 type asm_instr =
-  | Label of string
-  | Directive of string
-  | Comment of string
-  | Li of reg * int
-  | La of reg * string
-  | Lw of reg * int * reg
-  | Sw of reg * int * reg
-  | Add of reg * reg * reg
-  | Sub of reg * reg * reg
-  | Mul of reg * reg * reg
-  | Div of reg * reg * reg
-  | Mod of reg * reg * reg
-  | Slt of reg * reg * reg
-  | Xori of reg * reg * int
-  | Or of reg * reg * reg
-  | And of reg * reg * reg
-  | Beq of reg * reg * string
-  | Bne of reg * reg * string
-  | J of string
-  | Jal of string
-  | Jr of reg
-  | Ecall
-  | Addi of reg * reg * int
-  | Mv of reg * reg
+  | Label of string | Directive of string | Comment of string | Li of reg * int
+  | La of reg * string | Lw of reg * int * reg | Sw of reg * int * reg
+  | Add of reg * reg * reg | Sub of reg * reg * reg | Mul of reg * reg * reg
+  | Div of reg * reg * reg | Rem of reg * reg * reg | Slt of reg * reg * reg
+  | Xori of reg * reg * int | Or of reg * reg * reg | And of reg * reg * reg
+  | Beq of reg * reg * string | Bne of reg * reg * string | J of string
+  | Jal of string | Jr of reg | Ecall | Addi of reg * reg * int | Mv of reg * reg
 
-(* 汇编指令字符串表示 *)
+(* 汇编指令字符串表示 (无变动) *)
 let string_of_instr = function
-  | Label s -> s ^ ":"
-  | Directive s -> "\t" ^ s
-  | Comment s -> "\t# " ^ s
+  | Label s -> s ^ ":" | Directive s -> "\t" ^ s | Comment s -> "\t# " ^ s
   | Li (rd, imm) -> Printf.sprintf "\tli %s, %d" (string_of_reg rd) imm
   | La (rd, label) -> Printf.sprintf "\tla %s, %s" (string_of_reg rd) label
   | Lw (rd, offset, rs) -> Printf.sprintf "\tlw %s, %d(%s)" (string_of_reg rd) offset (string_of_reg rs)
@@ -58,7 +38,7 @@ let string_of_instr = function
   | Sub (rd, rs1, rs2) -> Printf.sprintf "\tsub %s, %s, %s" (string_of_reg rd) (string_of_reg rs1) (string_of_reg rs2)
   | Mul (rd, rs1, rs2) -> Printf.sprintf "\tmul %s, %s, %s" (string_of_reg rd) (string_of_reg rs1) (string_of_reg rs2)
   | Div (rd, rs1, rs2) -> Printf.sprintf "\tdiv %s, %s, %s" (string_of_reg rd) (string_of_reg rs1) (string_of_reg rs2)
-  | Mod (rd, rs1, rs2) -> Printf.sprintf "\trem %s, %s, %s" (string_of_reg rd) (string_of_reg rs1) (string_of_reg rs2)
+  | Rem (rd, rs1, rs2) -> Printf.sprintf "\trem %s, %s, %s" (string_of_reg rd) (string_of_reg rs1) (string_of_reg rs2)
   | Slt (rd, rs1, rs2) -> Printf.sprintf "\tslt %s, %s, %s" (string_of_reg rd) (string_of_reg rs1) (string_of_reg rs2)
   | Xori (rd, rs, imm) -> Printf.sprintf "\txori %s, %s, %d" (string_of_reg rd) (string_of_reg rs) imm
   | Or (rd, rs1, rs2) -> Printf.sprintf "\tor %s, %s, %s" (string_of_reg rd) (string_of_reg rs1) (string_of_reg rs2)
@@ -72,7 +52,7 @@ let string_of_instr = function
   | Addi (rd, rs, imm) -> Printf.sprintf "\taddi %s, %s, %d" (string_of_reg rd) (string_of_reg rs) imm
   | Mv (rd, rs) -> Printf.sprintf "\tmv %s, %s" (string_of_reg rd) (string_of_reg rs)
 
-(* 代码生成环境 *)
+(* 代码生成环境 (无变动) *)
 type codegen_env = {
   mutable instructions: asm_instr list;
   mutable label_counter: int;
@@ -82,14 +62,10 @@ type codegen_env = {
 }
 
 let create_env () = {
-  instructions = [];
-  label_counter = 0;
-  var_map = Hashtbl.create 50;
-  stack_offset = 0;
-  current_func_name = "";
+  instructions = []; label_counter = 0;
+  var_map = Hashtbl.create 50; stack_offset = 0; current_func_name = "";
 }
 
-(* CORRECTED: Added the missing function definition for gen_label. *)
 let gen_label env prefix =
   let count = env.label_counter in
   env.label_counter <- env.label_counter + 1;
@@ -120,44 +96,89 @@ let rec gen_expr env expr target_reg =
        | Not -> add_instr env (Slt (target_reg, Zero, target_reg))
        | Pos -> ())
   | BinOp (e1, op, e2) ->
-      add_instr env (Addi (SP, SP, -4));
-      add_instr env (Sw (T0, 0, SP));
-      gen_expr env e2 T1;
-      add_instr env (Lw (T0, 0, SP));
-      add_instr env (Addi (SP, SP, 4));
-      add_instr env (Addi (SP, SP, -4));
-      add_instr env (Sw (T1, 0, SP));
-      gen_expr env e1 T0;
-      add_instr env (Lw (T1, 0, SP));
-      add_instr env (Addi (SP, SP, 4));
+      (* FINAL CORRECTED LOGIC for BinOp evaluation *)
       (match op with
-       | Add -> add_instr env (Add (target_reg, T0, T1))
-       | Sub -> add_instr env (Sub (target_reg, T0, T1))
-       | Mul -> add_instr env (Mul (target_reg, T0, T1))
-       | Div -> add_instr env (Div (target_reg, T0, T1))
-       | Mod -> add_instr env (Mod (target_reg, T0, T1))
-       | Lt  -> add_instr env (Slt (target_reg, T0, T1))
-       | Gt  -> add_instr env (Slt (target_reg, T1, T0))
-       | Lte -> add_instr env (Slt (target_reg, T1, T0)); add_instr env (Xori (target_reg, target_reg, 1))
-       | Gte -> add_instr env (Slt (target_reg, T0, T1)); add_instr env (Xori (target_reg, target_reg, 1))
-       | Eq  -> add_instr env (Sub (target_reg, T0, T1)); add_instr env (Slt (target_reg, Zero, target_reg)); add_instr env (Xori(target_reg, target_reg, 1))
-       | Neq -> add_instr env (Sub (target_reg, T0, T1)); add_instr env (Slt (target_reg, Zero, target_reg))
-       | And -> add_instr env (Slt (T0, Zero, T0)); add_instr env (Slt (T1, Zero, T1)); add_instr env (And (target_reg, T0, T1))
-       | Or  -> add_instr env (Or (T0, T0, T1)); add_instr env (Slt (target_reg, Zero, T0)))
+      | And -> (* Short-circuit evaluation for && *)
+          let false_label = gen_label env "and_false" in
+          let end_label = gen_label env "and_end" in
+          gen_expr env e1 target_reg;
+          add_instr env (Beq (target_reg, Zero, false_label));
+          gen_expr env e2 target_reg;
+          add_instr env (Beq (target_reg, Zero, false_label));
+          add_instr env (Li (target_reg, 1));
+          add_instr env (J end_label);
+          add_instr env (Label false_label);
+          add_instr env (Li (target_reg, 0));
+          add_instr env (Label end_label)
+      | Or -> (* Short-circuit evaluation for || *)
+          let true_label = gen_label env "or_true" in
+          let end_label = gen_label env "or_end" in
+          gen_expr env e1 target_reg;
+          add_instr env (Bne (target_reg, Zero, true_label));
+          gen_expr env e2 target_reg;
+          add_instr env (Bne (target_reg, Zero, true_label));
+          add_instr env (Li (target_reg, 0));
+          add_instr env (J end_label);
+          add_instr env (Label true_label);
+          add_instr env (Li (target_reg, 1));
+          add_instr env (Label end_label)
+      | _ -> (* Standard evaluation for other operators *)
+          gen_expr env e1 T0;
+          add_instr env (Addi (SP, SP, -4));
+          add_instr env (Sw (T0, 0, SP));
+          gen_expr env e2 T0;
+          add_instr env (Lw (T1, 0, SP));
+          add_instr env (Addi (SP, SP, 4));
+          (match op with
+           | Add -> add_instr env (Add (target_reg, T1, T0))
+           | Sub -> add_instr env (Sub (target_reg, T1, T0))
+           | Mul -> add_instr env (Mul (target_reg, T1, T0))
+           | Div -> add_instr env (Div (target_reg, T1, T0))
+           | Mod -> add_instr env (Rem (target_reg, T1, T0))
+           | Lt  -> add_instr env (Slt (target_reg, T1, T0))
+           | Gt  -> add_instr env (Slt (target_reg, T0, T1))
+           | Lte -> add_instr env (Slt (target_reg, T0, T1)); add_instr env (Xori (target_reg, target_reg, 1))
+           | Gte -> add_instr env (Slt (target_reg, T1, T0)); add_instr env (Xori (target_reg, target_reg, 1))
+           | Eq  -> add_instr env (Sub (target_reg, T1, T0)); add_instr env (Slt (target_reg, Zero, target_reg)); add_instr env (Xori(target_reg, target_reg, 1))
+           | Neq -> add_instr env (Sub (target_reg, T1, T0)); add_instr env (Slt (target_reg, Zero, target_reg))
+           | _ -> failwith "Unreachable case in BinOp"))
   | Call (fname, args) ->
-      let regs_to_save = caller_saved_regs in
-      List.iter (fun reg -> add_instr env (Addi (SP, SP, -4)); add_instr env (Sw (reg, 0, SP))) regs_to_save;
-      List.iteri (fun i arg ->
-        if i < 8 then gen_expr env arg (List.nth argument_regs i) else failwith "Too many arguments"
+      (* 1. Save caller-saved registers needed across the call (especially RA) *)
+      add_instr env (Addi (SP, SP, -4));
+      add_instr env (Sw (RA, 0, SP));
+
+      (* 2. Evaluate arguments and push their results onto the stack. *)
+      List.iter (fun arg ->
+          gen_expr env arg T0;
+          add_instr env (Addi (SP, SP, -4));
+          add_instr env (Sw (T0, 0, SP))
       ) args;
+
+      (* 3. Pop arguments from stack into registers a0-a7. *)
+      List.iteri (fun i _ ->
+          if i < List.length argument_regs then
+              add_instr env (Lw (List.nth argument_regs i, (List.length args - 1 - i) * 4, SP))
+          else ()
+      ) args;
+      
+      (* 4. Clean up the stack space used for arguments. *)
+      add_instr env (Addi (SP, SP, 4 * List.length args));
+      
+      (* 5. Call the function. *)
       add_instr env (Jal fname);
-      if target_reg <> A0 then add_instr env (Mv (target_reg, A0));
-      List.iter (fun reg -> add_instr env (Lw (reg, 0, SP)); add_instr env (Addi (SP, SP, 4))) (List.rev regs_to_save)
+      
+      (* 6. Restore caller-saved registers. *)
+      add_instr env (Lw (RA, 0, SP));
+      add_instr env (Addi (SP, SP, 4));
+
+      (* 7. Move the return value (in a0) to the desired target register. *)
+      if target_reg <> A0 then
+          add_instr env (Mv (target_reg, A0))
 
 let rec gen_stmt env stmt =
   match stmt with
   | Empty -> ()
-  | ExprStmt e -> gen_expr env e T0
+  | ExprStmt e -> ignore (gen_expr env e T0)
   | VarDef (_, name, init) ->
       gen_expr env init T0;
       let offset = Hashtbl.find env.var_map name in
@@ -193,17 +214,15 @@ let rec gen_stmt env stmt =
        | Some expr -> gen_expr env expr A0
        | None -> ());
       add_instr env (J (env.current_func_name ^ "_return"))
-  | Break -> ()
-  | Continue -> ()
+  | Break -> () | Continue -> ()
   | Block stmts -> List.iter (gen_stmt env) stmts
 
 let gen_func env func =
   env.current_func_name <- func.fname;
   Hashtbl.clear env.var_map;
   env.stack_offset <- 0;
-
   let num_locals = count_vars func.body in
-  let frame_size = 4 * (1 + List.length callee_saved_regs + num_locals + List.length func.params) in
+  let frame_size = 4 * (1 + List.length callee_saved_regs + num_locals) in
   
   add_instr env (Label func.fname);
   add_instr env (Addi (SP, SP, -frame_size));
@@ -214,13 +233,11 @@ let gen_func env func =
 
   List.iteri (fun i (_, pname) ->
     if i < 8 then
-      begin
-        env.stack_offset <- env.stack_offset - 4;
-        let offset = env.stack_offset in
-        Hashtbl.add env.var_map pname offset;
-        add_instr env (Sw (List.nth argument_regs i, offset, SP))
-      end
+      let offset = env.stack_offset - (i * 4) in
+      Hashtbl.add env.var_map pname offset;
+      add_instr env (Sw (List.nth argument_regs i, offset, SP))
   ) func.params;
+  env.stack_offset <- env.stack_offset - (List.length func.params * 4);
   
   let rec alloc_locals stmt =
     match stmt with
@@ -236,6 +253,7 @@ let gen_func env func =
   in
   alloc_locals func.body;
   gen_stmt env func.body;
+  
   add_instr env (Label (func.fname ^ "_return"));
   List.iteri (fun i reg -> add_instr env (Lw (reg, frame_size - 8 - i * 4, SP))) callee_saved_regs;
   add_instr env (Lw (RA, frame_size - 4, SP));

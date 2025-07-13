@@ -7,41 +7,43 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # --- Configuration ---
-# 检查是否存在64位或32位工具链
+# This version intelligently finds the best available toolchain.
+# It uses the 64-bit tools because they are more commonly available,
+# but it passes 32-bit flags to the compiler.
+
 if command -v riscv64-unknown-elf-gcc &> /dev/null && command -v qemu-riscv64 &> /dev/null; then
     COMPILER="riscv64-unknown-elf-gcc"
-    EMULATOR="qemu-riscv64"
-elif command -v riscv32-unknown-elf-gcc &> /dev/null && command -v qemu-riscv32 &> /dev/null; then
-    COMPILER="riscv32-unknown-elf-gcc"
     EMULATOR="qemu-riscv32"
+    echo -e "${GREEN}Found 64-bit RISC-V toolchain. Will compile for 32-bit target.${NC}"
 else
-    echo -e "${RED}Error: RISC-V toolchain (GCC and QEMU) not found.${NC}"
-    echo "Please install 'riscv64-unknown-elf-gcc' and 'qemu-riscv64' or their 32-bit equivalents."
+    echo -e "${RED}Error: Required tools ('riscv64-unknown-elf-gcc' and 'qemu-riscv64') not found.${NC}"
+    echo "Please install them, e.g., using: sudo apt install gcc-riscv64-unknown-elf qemu-user"
     exit 1
 fi
 
-COMPILER_FLAGS="-march=rv32i -mabi=ilp32 -static -nostdlib" 
+# We explicitly tell the 64-bit compiler to generate 32-bit code.
+COMPILER_FLAGS="-march=rv32i -mabi=ilp32 -static -nostdlib"
 COMPILER_EXE="./_build/default/main.exe"
 
 # --- Helper Function ---
-# $1: Test file (.tc)
-# $2: Expected exit code
 run_test() {
-    local test_file="$1"
+    local test_file_path="$1"
     local expected_code="$2"
-    local base_name=$(basename "$test_file" .tc)
+    
+    # Use basename to get the filename without directory path
+    local base_name=$(basename "$test_file_path" .tc)
     local asm_file="${base_name}.s"
     local exec_file="${base_name}"
 
-    echo -e "\n--- Testing ${YELLOW}${test_file}${NC} ---"
+    echo -e "\n--- Testing ${YELLOW}${test_file_path}${NC} ---"
 
     # 1. Compile .tc to .s using your compiler
     echo "1. Generating RISC-V assembly..."
-    if ! "$COMPILER_EXE" "$test_file" > "$asm_file"; then
-        echo -e "${RED}FAIL: Compiler crashed or produced an error.${NC}"
+    # Use redirection to pass the file content to your compiler's stdin
+    if ! "$COMPILER_EXE" < "$test_file_path" > "$asm_file"; then
+        echo -e "${RED}FAIL: Your compiler crashed or produced an error.${NC}"
         return
     fi
-    # Check if assembly file is empty
     if [ ! -s "$asm_file" ]; then
         echo -e "${RED}FAIL: Generated assembly file is empty.${NC}"
         return
@@ -57,9 +59,10 @@ run_test() {
     fi
     echo "   Generated executable ${exec_file}"
 
-    # 3. Run the executable in QEMU and get the exit code
+    # 3. Run the executable in QEMU
+    # The 64-bit QEMU can run 32-bit code when compiled with the correct flags.
     echo "3. Running with ${EMULATOR}..."
-    "$EMULATOR" "$exec_file"
+    "$EMULATOR" "./${exec_file}"
     actual_code=$?
 
     # 4. Compare actual exit code with expected exit code
@@ -74,25 +77,19 @@ run_test() {
     fi
 }
 
-
 # --- Main Execution ---
-
-# First, ensure the compiler is built
 echo "Building the compiler with Dune..."
 if ! dune build; then
     echo -e "${RED}Compiler build failed. Aborting tests.${NC}"
     exit 1
 fi
 
-# Run tests
+# Run tests with the provided paths
+# You can add the paths to your test files here
 run_test "test_fib.tc" 55
 run_test "test_logic.tc" 42
-# 您也可以在这里添加对项目中原有测试文件的测试
-# run_test "test_codegen.tc" 8 
+run_test "../compiler_inputs_advanced/01_minimal.tc" 0
+run_test "../compiler_inputs_advanced/02_assignment.tc" 3
+
 
 echo -e "\n--- All Tests Completed ---"
-
-# --- Cleanup ---
-# You can uncomment these lines to automatically remove generated files
-# echo "Cleaning up generated files..."
-# rm -f *.s test_fib test_logic test_codegen
