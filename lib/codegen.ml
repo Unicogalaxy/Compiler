@@ -143,7 +143,7 @@ let rec gen_expr env expr target_reg =
            | Neq -> add_instr env (Sub (target_reg, T1, T0)); add_instr env (Slt (target_reg, Zero, target_reg))
            | _ -> failwith "Unreachable case in BinOp"))
   | Call (fname, args) ->
-      (* 1. Save caller-saved registers needed across the call (especially RA) *)
+      (* 1. Save caller-saved registers that are needed across the call. *)
       add_instr env (Addi (SP, SP, -4));
       add_instr env (Sw (RA, 0, SP));
 
