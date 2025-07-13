@@ -1,6 +1,8 @@
 (* lexer.mll *)
 {
   open Parser (* Import token definitions from the parser *)
+  (* CORRECTED: Define a custom exception for the lexer. *)
+  exception Error of string
 }
 
 (* Helper rule for digits *)
@@ -55,5 +57,4 @@ rule token = parse
   | eof     { EOF }
 
   (* Error case *)
-  (* | _ as char -> failwith ("Illegal character: " ^ Char.escaped char) *)
-
+  | _ as chars   {raise (Error (Printf.sprintf "Illegal character: %c" chars))}

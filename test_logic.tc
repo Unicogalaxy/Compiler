@@ -1,0 +1,30 @@
+int main() {
+  int a = 10;
+  int b = 20;
+  int c = 1; 
+  int result = 0;
+
+  
+  if (a > 5 && b > 15) {
+    result = result + 10; 
+  }
+
+
+  if (a < 5 || b > 15) {
+    result = result + 20; 
+  }
+
+
+  if (!(a == b)) {
+    result = result + 5; 
+  }
+
+  
+  if (a > 20 && c == 1) {
+    result = result + 100; 
+  } else {
+    result = result + 7;   
+  }
+
+  return result;
+}
