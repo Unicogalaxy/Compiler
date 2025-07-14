@@ -1,7 +1,7 @@
 (* lib/codegen.ml *)
 open Ast
 
-(* RISC-V寄存器定义 (无变动) *)
+(* RISC-V寄存器定义 *)
 type reg = | Zero | RA | SP | GP | TP | T0 | T1 | T2 | S0 | S1 | A0 | A1 | A2 | A3
            | A4 | A5 | A6 | A7 | S2 | S3 | S4 | S5 | S6 | S7 | S8 | S9 | S10 | S11
            | T3 | T4 | T5 | T6
@@ -27,7 +27,7 @@ type asm_instr =
   | Beq of reg * reg * string | Bne of reg * reg * string | J of string
   | Jal of string | Jr of reg | Ecall | Addi of reg * reg * int | Mv of reg * reg
 
-(* 汇编指令字符串表示 (无变动) *)
+(* 汇编指令字符串表示 *)
 let string_of_instr = function
   | Label s -> s ^ ":" | Directive s -> "\t" ^ s | Comment s -> "\t# " ^ s
   | Li (rd, imm) -> Printf.sprintf "\tli %s, %d" (string_of_reg rd) imm
@@ -52,7 +52,7 @@ let string_of_instr = function
   | Addi (rd, rs, imm) -> Printf.sprintf "\taddi %s, %s, %d" (string_of_reg rd) (string_of_reg rs) imm
   | Mv (rd, rs) -> Printf.sprintf "\tmv %s, %s" (string_of_reg rd) (string_of_reg rs)
 
-(* 代码生成环境 (无变动) *)
+(* 代码生成环境 *)
 type codegen_env = {
   mutable instructions: asm_instr list;
   mutable label_counter: int;
@@ -92,13 +92,12 @@ let rec gen_expr env expr target_reg =
   | UnaOp (op, e) ->
       gen_expr env e target_reg;
       (match op with
-       | Neg -> add_instr env (Sub (target_reg, Zero, target_reg))
-       | Not -> add_instr env (Slt (target_reg, Zero, target_reg))
-       | Pos -> ())
+      | Neg -> add_instr env (Sub (target_reg, Zero, target_reg))
+      | Not -> add_instr env (Slt (target_reg, Zero, target_reg))
+      | Pos -> ())
   | BinOp (e1, op, e2) ->
-      (* FINAL CORRECTED LOGIC for BinOp evaluation *)
       (match op with
-      | And -> (* Short-circuit evaluation for && *)
+      | And -> (* 短路求值 for && *)
           let false_label = gen_label env "and_false" in
           let end_label = gen_label env "and_end" in
           gen_expr env e1 target_reg;
@@ -110,7 +109,7 @@ let rec gen_expr env expr target_reg =
           add_instr env (Label false_label);
           add_instr env (Li (target_reg, 0));
           add_instr env (Label end_label)
-      | Or -> (* Short-circuit evaluation for || *)
+      | Or -> (* 短路求值 for || *)
           let true_label = gen_label env "or_true" in
           let end_label = gen_label env "or_end" in
           gen_expr env e1 target_reg;
@@ -122,7 +121,7 @@ let rec gen_expr env expr target_reg =
           add_instr env (Label true_label);
           add_instr env (Li (target_reg, 1));
           add_instr env (Label end_label)
-      | _ -> (* Standard evaluation for other operators *)
+      | _ -> (* 其他运算符的标准求值 *)
           gen_expr env e1 T0;
           add_instr env (Addi (SP, SP, -4));
           add_instr env (Sw (T0, 0, SP));
@@ -130,48 +129,48 @@ let rec gen_expr env expr target_reg =
           add_instr env (Lw (T1, 0, SP));
           add_instr env (Addi (SP, SP, 4));
           (match op with
-           | Add -> add_instr env (Add (target_reg, T1, T0))
-           | Sub -> add_instr env (Sub (target_reg, T1, T0))
-           | Mul -> add_instr env (Mul (target_reg, T1, T0))
-           | Div -> add_instr env (Div (target_reg, T1, T0))
-           | Mod -> add_instr env (Rem (target_reg, T1, T0))
-           | Lt  -> add_instr env (Slt (target_reg, T1, T0))
-           | Gt  -> add_instr env (Slt (target_reg, T0, T1))
-           | Lte -> add_instr env (Slt (target_reg, T0, T1)); add_instr env (Xori (target_reg, target_reg, 1))
-           | Gte -> add_instr env (Slt (target_reg, T1, T0)); add_instr env (Xori (target_reg, target_reg, 1))
-           | Eq  -> add_instr env (Sub (target_reg, T1, T0)); add_instr env (Slt (target_reg, Zero, target_reg)); add_instr env (Xori(target_reg, target_reg, 1))
-           | Neq -> add_instr env (Sub (target_reg, T1, T0)); add_instr env (Slt (target_reg, Zero, target_reg))
-           | _ -> failwith "Unreachable case in BinOp"))
+          | Add -> add_instr env (Add (target_reg, T1, T0))
+          | Sub -> add_instr env (Sub (target_reg, T1, T0))
+          | Mul -> add_instr env (Mul (target_reg, T1, T0))
+          | Div -> add_instr env (Div (target_reg, T1, T0))
+          | Mod -> add_instr env (Rem (target_reg, T1, T0))
+          | Lt  -> add_instr env (Slt (target_reg, T1, T0))
+          | Gt  -> add_instr env (Slt (target_reg, T0, T1))
+          | Lte -> add_instr env (Slt (target_reg, T0, T1)); add_instr env (Xori (target_reg, target_reg, 1))
+          | Gte -> add_instr env (Slt (target_reg, T1, T0)); add_instr env (Xori (target_reg, target_reg, 1))
+          | Eq  -> add_instr env (Sub (target_reg, T1, T0)); add_instr env (Slt (target_reg, Zero, target_reg)); add_instr env (Xori(target_reg, target_reg, 1))
+          | Neq -> add_instr env (Sub (target_reg, T1, T0)); add_instr env (Slt (target_reg, Zero, target_reg))
+          | _ -> failwith "Unreachable case in BinOp"))
   | Call (fname, args) ->
-      (* 1. Save caller-saved registers that are needed across the call. *)
+      (* 1. 保存调用者保存的寄存器 (ra) *)
       add_instr env (Addi (SP, SP, -4));
       add_instr env (Sw (RA, 0, SP));
 
-      (* 2. Evaluate arguments and push their results onto the stack. *)
+      (* 2. 计算参数并将其压入栈 *)
       List.iter (fun arg ->
           gen_expr env arg T0;
           add_instr env (Addi (SP, SP, -4));
           add_instr env (Sw (T0, 0, SP))
       ) args;
 
-      (* 3. Pop arguments from stack into registers a0-a7. *)
+      (* 3. 从栈中将参数加载到 a0-a7 寄存器 *)
       List.iteri (fun i _ ->
           if i < List.length argument_regs then
               add_instr env (Lw (List.nth argument_regs i, (List.length args - 1 - i) * 4, SP))
           else ()
       ) args;
-      
-      (* 4. Clean up the stack space used for arguments. *)
+
+      (* 4. 清理用于参数的栈空间 *)
       add_instr env (Addi (SP, SP, 4 * List.length args));
-      
-      (* 5. Call the function. *)
+
+      (* 5. 调用函数 *)
       add_instr env (Jal fname);
-      
-      (* 6. Restore caller-saved registers. *)
+
+      (* 6. 恢复调用者保存的寄存器 (ra) *)
       add_instr env (Lw (RA, 0, SP));
       add_instr env (Addi (SP, SP, 4));
 
-      (* 7. Move the return value (in a0) to the desired target register. *)
+      (* 7. 将返回值 (在 a0 中) 移动到目标寄存器 *)
       if target_reg <> A0 then
           add_instr env (Mv (target_reg, A0))
 
@@ -192,13 +191,13 @@ let rec gen_stmt env stmt =
       let end_label = gen_label env "endif" in
       gen_expr env cond T0;
       (match else_opt with
-       | Some _ -> add_instr env (Beq (T0, Zero, else_label))
-       | None -> add_instr env (Beq (T0, Zero, end_label)));
+      | Some _ -> add_instr env (Beq (T0, Zero, else_label))
+      | None -> add_instr env (Beq (T0, Zero, end_label)));
       gen_stmt env then_stmt;
       add_instr env (J end_label);
       (match else_opt with
-       | Some else_stmt -> add_instr env (Label else_label); gen_stmt env else_stmt
-       | None -> ());
+      | Some else_stmt -> add_instr env (Label else_label); gen_stmt env else_stmt
+      | None -> ());
       add_instr env (Label end_label)
   | While (cond, body) ->
       let loop_label = gen_label env "while_loop" in
@@ -211,8 +210,8 @@ let rec gen_stmt env stmt =
       add_instr env (Label end_label)
   | Return expr_opt ->
       (match expr_opt with
-       | Some expr -> gen_expr env expr A0
-       | None -> ());
+      | Some expr -> gen_expr env expr A0
+      | None -> ());
       add_instr env (J (env.current_func_name ^ "_return"))
   | Break -> () | Continue -> ()
   | Block stmts -> List.iter (gen_stmt env) stmts
@@ -222,13 +221,16 @@ let gen_func env func =
   Hashtbl.clear env.var_map;
   env.stack_offset <- 0;
   let num_locals = count_vars func.body in
+  (* 帧大小计算：返回地址(RA) + 所有被调用者保存的寄存器 + 局部变量 *)
   let frame_size = 4 * (1 + List.length callee_saved_regs + num_locals) in
-  
+
+  (* 函数序言 *)
   add_instr env (Label func.fname);
   add_instr env (Addi (SP, SP, -frame_size));
   add_instr env (Sw (RA, frame_size - 4, SP));
   List.iteri (fun i reg -> add_instr env (Sw (reg, frame_size - 8 - i * 4, SP))) callee_saved_regs;
-  
+
+  (* 为参数和局部变量在栈帧中分配空间 *)
   env.stack_offset <- frame_size - 8 - (List.length callee_saved_regs * 4);
 
   List.iteri (fun i (_, pname) ->
@@ -238,7 +240,7 @@ let gen_func env func =
       add_instr env (Sw (List.nth argument_regs i, offset, SP))
   ) func.params;
   env.stack_offset <- env.stack_offset - (List.length func.params * 4);
-  
+
   let rec alloc_locals stmt =
     match stmt with
     | VarDef (_, name, _) ->
@@ -253,7 +255,8 @@ let gen_func env func =
   in
   alloc_locals func.body;
   gen_stmt env func.body;
-  
+
+  (* 函数尾声 *)
   add_instr env (Label (func.fname ^ "_return"));
   List.iteri (fun i reg -> add_instr env (Lw (reg, frame_size - 8 - i * 4, SP))) callee_saved_regs;
   add_instr env (Lw (RA, frame_size - 4, SP));
@@ -262,13 +265,15 @@ let gen_func env func =
 
 let gen_program program =
   let env = create_env () in
+  (* 1. 移除自定义的 _start 入口 *)
+  (* 2. 添加 .globl main, 使 main 函数对链接器可见 *)
   add_instr env (Directive ".text");
-  add_instr env (Directive ".globl _start");
-  add_instr env (Label "_start");
-  add_instr env (Jal "main");
-  add_instr env (Li (A7, 93));
-  add_instr env (Ecall);
+  add_instr env (Directive ".globl main");
+
+  (* 直接开始生成程序中的所有函数 *)
   List.iter (gen_func env) program;
+
+  (* 返回反转后的指令列表，以保持正确顺序 *)
   List.rev env.instructions
 
 let instructions_to_string instrs =

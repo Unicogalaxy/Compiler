@@ -1,9 +1,5 @@
 	.text
-	.globl _start
-_start:
-	jal main
-	li a7, 93
-	ecall
+	.globl main
 main:
 	addi sp, sp, -52
 	sw ra, 48(sp)
