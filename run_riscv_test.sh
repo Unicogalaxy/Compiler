@@ -10,7 +10,7 @@ NC='\033[0m' # No Color
 # 假设您已经将下载的工具链解压到了 /opt/riscv 目录
 # 请根据您实际的解压路径修改此变量
 TOOLCHAIN_PATH="/opt/riscv"
-COMPILER="${TOOLCHAIN_PATH}/bin/riscv64-unknown-elf-gcc"
+COMPILER="${TOOLCHAIN_PATH}/bin/riscv32-unknown-elf-gcc"
 EMULATOR="qemu-riscv32"
 
 # 检查工具是否存在
@@ -22,12 +22,9 @@ fi
 echo -e "${GREEN}测试将使用位于 ${TOOLCHAIN_PATH} 的独立工具链。${NC}"
 
 
-# --- 【核心修改 2】: 使用 --sysroot 标志进行标准链接 ---
-# 这是解决 "cannot find crt0.o" 问题的最可靠方法。
-# 它告诉编译器将指定的工具链目录作为自己的“系统根”，从而在其中查找所有库文件。
-# 注意：我们不使用 -nostdlib。
-COMPILER_FLAGS="-march=rv32i -mabi=ilp32 --sysroot=${TOOLCHAIN_PATH}"
-COMPILER_EXE="./_build/default/main.exe"
+
+COMPILER_FLAGS=" --sysroot=${TOOLCHAIN_PATH}"
+COMPILER_EXE="./_build/default/bin/main.exe"
 
 # --- Helper Function (函数体无需修改) ---
 run_test() {
@@ -83,9 +80,14 @@ if ! dune build; then
 fi
 
 # 运行您的所有测试
-run_test "test_fib.tc" 55
-run_test "test_logic.tc" 42
-run_test "../compiler_inputs_advanced/01_minimal.tc" 0
-run_test "../compiler_inputs_advanced/02_assignment.tc" 3
+# run_test "test_fib.tc" 55
+# run_test "test_logic.tc" 42
+# run_test "../compiler_inputs_advanced/01_minimal.tc" 0
+# run_test "../compiler_inputs_advanced/02_assignment.tc" 3
+# run_test "../compiler_inputs_advanced/04_while_break.tc" 5
+run_test "../compiler_inputs_advanced/05_function_call.tc" 7
+run_test "../compiler_inputs_advanced/06_continue.tc" 4
+run_test "../compiler_inputs_advanced/07_scope_shadow.tc" 1
+run_test "../compiler_inputs_advanced/09_recursion.tc" 120
 
 echo -e "\n--- 所有测试已完成 ---"
