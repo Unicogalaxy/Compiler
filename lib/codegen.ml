@@ -15,9 +15,19 @@ let string_of_reg = function
   | T5 -> "t5" | T6 -> "t6"
 
 let argument_regs = [A0; A1; A2; A3; A4; A5; A6; A7]
+
 let callee_saved_regs = [S1; S2; S3; S4; S5; S6; S7; S8; S9; S10; S11] (* s0 is now our frame pointer *)
 
 let caller_saved_regs = [T0; T1; T2; T3; T4; T5; T6]
+
+(* ====================寄存器定义 =====================
+        Zero 永远返回零      A0-A7 函数参数寄存器
+        RA   返回地址        T0-T6 临时寄存器
+        SP   栈指针          S0-S11 保存寄存器，存放函数的局部变量
+        GP   全局指针
+        TP   线程指针
+ *)
+
 
 (* 汇编指令 *)
 type asm_instr =
@@ -99,7 +109,7 @@ let rec gen_expr env expr target_reg =
   | Constant n -> add_instr env (Li (target_reg, n))
   | Var name ->
       let offset = Hashtbl.find env.var_map name in
-      add_instr env (Lw (target_reg, offset, S0))
+      add_instr env (Lw (target_reg, offset, S0))    (*S0在此处为帧指针*)
   | UnaOp (op, e) ->
       gen_expr env e target_reg;
       (match op with
@@ -169,15 +179,15 @@ let rec gen_expr env expr target_reg =
           add_instr env (Label label_true);
           add_instr env (Li (target_reg, 1));
           add_instr env (Label label_end)
-          )
+          ) 
 
   | Call (fname, args) ->
-    (* Step 1: 保存 caller-saved 临时寄存器 *)
+    (* Step 1: 保存 caller-saved 临时寄存器到栈 *)
     List.iteri (fun i reg ->
       let offset = env.stack_offset - (i + 1) * 4 in
       add_instr env (Sw (reg, offset, S0))
     ) caller_saved_regs;
-    let save_size = List.length caller_saved_regs * 4 in
+    let save_size = (List.length caller_saved_regs) * 4 in
     env.stack_offset <- env.stack_offset - save_size;
 
     (* Step 2: 生成参数到 a0~a7 或栈 *)
@@ -201,7 +211,7 @@ let rec gen_expr env expr target_reg =
     (* Step 5: 恢复 caller-saved 寄存器 *)
     List.iteri (fun i reg ->
       add_instr env (Lw (reg, env.stack_offset + i * 4, S0))
-    ) caller_saved_regs;
+    ) (List.rev caller_saved_regs);
     env.stack_offset <- env.stack_offset + save_size;
 
     (* Step 6: 返回值 *)
@@ -273,7 +283,8 @@ let gen_func env func =
 
   let align_frame n = ((n + 15) / 16) * 16 in
   let local_var_count = count_vars_and_tmps func.body in
-  let raw_size = 4 * (2 + List.length callee_saved_regs + List.length func.params + local_var_count) in
+  let raw_size = 4 * ( 4 + 2 + List.length callee_saved_regs + List.length caller_saved_regs + List.length func.params + local_var_count) in
+  (* 在分配栈上空间时要计算那些需要保存 *)
   let frame_size = align_frame raw_size in
 
 
@@ -281,7 +292,7 @@ let gen_func env func =
   add_instr env (Addi (SP, SP, -frame_size));
   add_instr env (Sw (RA, frame_size - 4, SP));
   add_instr env (Sw (S0, frame_size - 8, SP));
-  add_instr env (Addi (S0, SP, frame_size));
+  add_instr env (Addi (S0, SP, (frame_size-4)));
   List.iteri (fun i reg ->
     add_instr env (Sw (reg, -8 - (i * 4), S0))
   ) callee_saved_regs;
