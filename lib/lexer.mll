@@ -13,7 +13,8 @@ let digits = digit+
 rule token = parse
   (* Whitespace and Comments - to be ignored *)
   | [' ' '\t' '\r' '\n']    { token lexbuf } (* Ignore whitespace *)
-  
+  | "//" [^'\n']* '\n' { token lexbuf }  (* 跳过整行后，继续 lex *)
+
   (* Punctuators *)
   | '('     { LPAREN }
   | ')'     { RPAREN }
