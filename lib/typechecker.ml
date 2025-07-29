@@ -12,6 +12,7 @@ type type_env = {
   current_func: func_def option;
 }
 
+
 (* === 作用域管理函数 === *)
 let enter_scope env =
   { env with scopes = (Hashtbl.create 10) :: env.scopes }
