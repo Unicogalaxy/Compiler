@@ -39,7 +39,7 @@ run_test() {
 
     # 1. 用您的编译器将 .tc 编译为 .s
     echo "1. 生成 RISC-V 汇编代码..."
-    if ! "$COMPILER_EXE" < "$test_file_path" > "$asm_file"; then
+    if ! "$COMPILER_EXE" < "$test_file_path" > ../results/asm_files/"$asm_file"; then
         echo -e "${RED}失败：您的编译器崩溃或产生错误。${NC}"
         return
     fi
@@ -47,7 +47,7 @@ run_test() {
 
     # 2. 使用独立的 GCC 进行汇编和标准链接
     echo "2. 使用独立GCC进行汇编 (不使用 -nostdlib)..."
-    "$COMPILER" $COMPILER_FLAGS -o "$exec_file" "$asm_file"
+    "$COMPILER" $COMPILER_FLAGS -o ../results/exec_files/"$exec_file" ../results/asm_files/"$asm_file"
     if [ $? -ne 0 ]; then
         echo -e "${RED}失败：RISC-V GCC 无法汇编或链接代码。${NC}"
         echo "   请检查工具链路径是否正确，以及生成的 .s 文件是否只包含一个全局的 'main' 函数。"
@@ -57,7 +57,7 @@ run_test() {
 
     # 3. 在 QEMU 中运行
     echo "3. 使用 ${EMULATOR} 运行..."
-    "$EMULATOR" "./${exec_file}"
+    "$EMULATOR" "../results/exec_files/${exec_file}"
     actual_code=$?
 
     # 4. 验证退出码
@@ -87,13 +87,20 @@ fi
 # run_test "../compiler_inputs_advanced/04_while_break.tc" 5
 # run_test "../compiler_inputs_advanced/05_function_call.tc" 7
 # run_test "../compiler_inputs_advanced/06_continue.tc" 4
-run_test "../compiler_inputs_advanced/07_scope_shadow.tc" 1
+# run_test "../compiler_inputs_advanced/07_scope_shadow.tc" 1
 # run_test "../compiler_inputs_advanced/09_recursion.tc" 120
 run_test "../compiler_inputs_advanced/10_void_fn.tc" 0
 # run_test "../compiler_inputs_advanced/11_precedence.tc" 14
 # run_test "../compiler_inputs_advanced/12_division_check.tc" 2
-run_test "../compiler_inputs_advanced/13_scope_block.tc" 5
+# run_test "../compiler_inputs_advanced/13_scope_block.tc" 8
 # run_test "../compiler_inputs_advanced/14_nested_if_while.tc" 6
+# run_test "../compiler_inputs_advanced/15_multiple_return_paths.tc" 1
+run_test "../compiler_inputs_advanced/16_complex_syntax.tc" 6
+run_test "../compiler_inputs_advanced/17_complex_expressions.tc" 6
+run_test "../compiler_inputs_advanced/18_many_variables.tc" 6
+run_test "../compiler_inputs_advanced/19_many_arguments.tc" 6
+run_test "../compiler_inputs_advanced/20_comprehensive.tc" 6
+
 
 
 echo -e "\n--- 所有测试已完成 ---"

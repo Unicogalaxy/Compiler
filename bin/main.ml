@@ -13,14 +13,17 @@ let () =
     (* 2. 运行解析器获取AST *)
     let ast = Parser.comp_unit Lexer.token lexbuf in
 
-    (* 3. 运行类型检查器 *)
-    Typechecker.type_check_program ast;
+    (* 3. 运行类型检查器,并生成AnnotatedAst *)
+    match Analyzer.analyze ast with
+      | Ok annotated_ast -> 
+        (* 4. 运行代码生成器 *)
+        let assembly_code = Codegen.codegen_program annotated_ast in
 
-    (* 4. 运行代码生成器 *)
-    let assembly_code = Codegen.codegen_program ast in
-
-    (* 5. 将最终的汇编代码打印到标准输出 *)
-    print_endline assembly_code
+        (* 5. 将最终的汇编代码打印到标准输出 *)
+        print_endline assembly_code
+      | Error msg -> 
+        Printf.eprintf "Semantic error: %s\n" msg;
+        exit 1
 
   with
   | Lexer.Error msg ->
@@ -37,7 +40,7 @@ let () =
         (lexbuf.lex_curr_p.pos_cnum - lexbuf.lex_curr_p.pos_bol)
         (Lexing.lexeme lexbuf);
       exit 1
-  | Typechecker.Type_error msg ->
+  | Analyzer.Semantic_error msg ->
       (* 错误信息输出到标准错误流 (stderr) *)
       eprintf "Type error: %s\n" msg;
       exit 1
