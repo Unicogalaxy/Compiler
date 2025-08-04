@@ -100,6 +100,7 @@ let rec analyze_expr (env: analysis_env) (expr: Ast.expr) :AnnotatedAst.expr =
     let ae = analyze_expr env e in 
     (match op, ae.a_etype with
     | (Neg|Pos|Not), TInt -> {a_loc = AUnaOp (op, ae); a_etype = TInt}
+    | (Neg|Pos|Not), TVoid -> semantic_error "a void expression can not be used to do Binop operation!"
     )
   | BinOp (e1, op , e2) ->
     let ae1 = analyze_expr env e1 in
@@ -122,7 +123,7 @@ let rec analyze_expr (env: analysis_env) (expr: Ast.expr) :AnnotatedAst.expr =
 
          match func.ftype with
         | TIntReturn -> { a_loc = ACall(fname, a_args); a_etype = TInt }
-        | TVoidReturn -> semantic_error "Cannot use a void function's result as a value"
+        | TVoidReturn -> { a_loc= ACall(fname, a_args); a_etype = TVoid }
       with Not_found -> semantic_error ("Undefined function: " ^ fname)
 
 (* === 语句分析 === *)
@@ -232,7 +233,6 @@ let analyze_program (program: Ast.program) : AnnotatedAst.program =
   (* 检查 main 函数的合法性 *)
   (try
     let main_func = Hashtbl.find env.funcs "main" in
-    if main_func.ftype <> TIntReturn then semantic_error "Main function must return int";
     if main_func.params <> [] then semantic_error "Main function cannot have parameters"
   with Not_found ->
     semantic_error "Program must have a main function");

@@ -41,7 +41,7 @@ let rec gen_expr env (aexpr: AnnotatedAst.expr) target_reg =
        | Neg -> add_instr env (Sub (target_reg, Zero, target_reg))
        | Not -> add_instr env (Slt (target_reg, Zero, target_reg)); add_instr env (Xori(target_reg, target_reg, 1))
        | Pos -> ())
-  | ABinOp (ae1, op, ae2) ->
+  | ABinOp (ae1, op, ae2) -> 
       gen_expr env ae1 T0;
       env.temp_offset <- env.temp_offset - 4;
       let temp_addr = env.temp_offset in
@@ -54,7 +54,7 @@ let rec gen_expr env (aexpr: AnnotatedAst.expr) target_reg =
     | Add -> add_instr env (Add (target_reg, T0, T1))
     | Sub -> add_instr env (Sub (target_reg, T0, T1))
     | Mul -> add_instr env (Mul (target_reg, T0, T1))
-    | Div -> add_instr env (Div (target_reg, T0, T1))
+    | Div -> add_instr env (Div (target_reg, T0, T1));
     | Mod -> add_instr env (Rem (target_reg, T0, T1))
   
     (* 比较运算 - 结果为 1 (true) 或 0 (false) *)
@@ -151,10 +151,12 @@ let rec gen_expr env (aexpr: AnnotatedAst.expr) target_reg =
       ) reversed_caller_saved;
 
       (* --- 步骤 6: 处理返回值 (总是在 a0 中) --- *)
-      if target_reg <> A0 then
-          add_instr env (Mv (target_reg, A0))
-      else ()
-
+      match aexpr.a_etype with 
+      | TInt -> if target_reg <> A0 then
+                  add_instr env (Mv (target_reg, A0))
+                else ()
+      | TVoid -> ()
+      
 (* 接收 AnnotatedAst.stmt *)
 and gen_stmt env (astmt: AnnotatedAst.stmt) =
   match astmt with

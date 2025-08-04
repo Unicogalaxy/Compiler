@@ -54,14 +54,14 @@ comp_unit:
 ;
 
 func_def_list:
-  func_def
+  | func_def
     { [$1] }
   | func_def_list func_def
     { $2 :: $1 }
 ;
 
 func_type:
-  INT     { TIntReturn }
+  | INT     { TIntReturn }
   | VOID    { TVoidReturn }
 ;
 

@@ -13,7 +13,8 @@ let digits = digit+
 rule token = parse
   (* Whitespace and Comments - to be ignored *)
   | [' ' '\t' '\r' '\n']    { token lexbuf } (* Ignore whitespace *)
-  | "//" [^'\n']* '\n' { token lexbuf }  (* 跳过整行后，继续 lex *)
+  | "//" [^'\n']*  { token lexbuf }  (* 跳过整行后，继续 lex *)
+  | "/*" { comment lexbuf}  (* 忽略多行注释 *)
 
   (* Punctuators *)
   | '('     { LPAREN }
@@ -59,3 +60,8 @@ rule token = parse
 
   (* Error case *)
   | _ as chars   {raise (Error (Printf.sprintf "Illegal character: %c" chars))}
+
+and comment = parse 
+  | "*/"                 { token lexbuf }
+  | eof                  { raise (Error "Unterminated multi-line comment") } 
+  | _                    { comment lexbuf } (* 处理其他所有字符 *)

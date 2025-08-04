@@ -36,6 +36,7 @@ type func_type =
 (*变量类型*)
 type var_type = 
 | TInt
+| TVoid (* 加入以支持void返回类型的函数 *)
 
 and stmt = 
   | Empty
