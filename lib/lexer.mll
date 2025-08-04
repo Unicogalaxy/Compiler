@@ -12,7 +12,8 @@ let digits = digit+
 (* Main lexer rule *)
 rule token = parse
   (* Whitespace and Comments - to be ignored *)
-  | [' ' '\t' '\r' '\n']    { token lexbuf } (* Ignore whitespace *)
+  | '\n' {Lexing.new_line lexbuf; token lexbuf}
+  | [' ' '\t' '\r']    { token lexbuf } (* Ignore whitespace *)
   | "//" [^'\n']*  { token lexbuf }  (* 跳过整行后，继续 lex *)
   | "/*" { comment lexbuf}  (* 忽略多行注释 *)
 

@@ -24,7 +24,7 @@
 %nonassoc LT GT LTE GTE
 %left PLUS MINUS
 %left TIMES DIV MOD
-%right NOT UMINUS
+%right NOT UMINUS UPLUS
 
 /* START SYMBOL & TYPE ANNOTATIONS */
 
@@ -139,6 +139,8 @@ expr:
     { Call($1, $3) }
   | MINUS expr %prec UMINUS
     { UnaOp(Neg, $2) }
+  | PLUS expr %prec UPLUS       
+    { UnaOp(Pos, $2) }
   | NOT expr
     { UnaOp(Not, $2) }
   | expr OR expr
