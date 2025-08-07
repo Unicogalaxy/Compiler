@@ -55,7 +55,7 @@ end
 type analysis_env = {
   scopes: (string, symbol_entry) Hashtbl.t list; (* 符号表栈 *)
   funcs: (string, func_def) Hashtbl.t;           (* 全局函数定义表 *)
-  mutable stack_offset: int;                     (* 当前可用的栈偏移量 *)
+  mutable stack_offset: int ref;                     (* 当前可用的栈偏移量 *)
   current_func: func_def option;                 (* 用于检查 return 类型 *)
   loop_depth: int;                               (* 用于检查 break/continue *)
 }
@@ -73,8 +73,8 @@ let declare_var env name vtype =
       semantic_error ("Variable '" ^ name ^ "' is already declared in this scope");
     
     (* 计算变量的偏移量 *)
-    env.stack_offset <- env.stack_offset - 4;
-    let entry = {sym_name = name; sym_type = vtype; sym_offset = env.stack_offset } in
+    env.stack_offset:= !(env.stack_offset) - 4;
+    let entry = {sym_name = name; sym_type = vtype; sym_offset = !(env.stack_offset) } in
     Hashtbl.add current_scope name entry;
     entry
 
@@ -175,70 +175,76 @@ and analyze_stmt env (stmt: Ast.stmt) : AnnotatedAst.stmt =
       let a_stmts = List.map (analyze_stmt block_env) stmts in
       ABlock a_stmts
 
-let rec stmt_always_returns = function
+let rec stmt_always_returns = function 
   | AReturn _ -> true
   | ABlock stmts -> List.exists stmt_always_returns stmts
   | AIf (_, then_stmt, Some else_stmt) ->
       stmt_always_returns then_stmt && stmt_always_returns else_stmt
   | _ -> false
-
-  let analyze_func_def env (func: Ast.func_def) : AnnotatedAst.func_def =
-  let func_env = {
-    scopes = [Hashtbl.create 20];
-    funcs = env.funcs;
-    stack_offset = 0; (* 栈偏移量从每个函数的 0 开始重新计算 *)
-    current_func = Some func;
-    loop_depth = 0;
-  } in
-
-  (* 为RA和旧S0预留空间 *)
-  func_env.stack_offset <- -8;
-  (* 为被调用者保存寄存器预留空间 *)
-  let open Reg in func_env.stack_offset <- func_env.stack_offset - (4 * List.length callee_saved_regs);
-
-  (* 声明参数 *)
-  let annotated_params = List.map (fun (ptype, pname) ->
-    declare_var func_env pname ptype
-  ) func.params in
-
-  (* 分析函数体 *)
-  let a_body = analyze_stmt (enter_scope func_env) func.body in
   
-  (* 检查返回值路径 *)
-  if func.ftype = TIntReturn && not (stmt_always_returns a_body) then
-    semantic_error ("Function '" ^ func.fname ^ "' must return a value on all control paths");
 
-  (* 计算最终的栈帧大小 *)
-  let raw_size = abs func_env.stack_offset in
-  let frame_size = ((raw_size + 15) / 16) * 16 in (* 16字节对齐 *)
+let analyze_func_def env (func: Ast.func_def) : AnnotatedAst.func_def =
+let func_env = {
+  scopes = [Hashtbl.create 20];
+  funcs = env.funcs;
+  stack_offset = ref 0; (* 栈偏移量从每个函数的 0 开始重新计算 *)
+  current_func = Some func;
+  loop_depth = 0;
+} in
 
-  { a_ftype = func.ftype; a_fname = func.fname; a_params = annotated_params; 
-    a_body = a_body; frame_size = frame_size }
+(* debug for current func *)
+print_endline ("# -----------Debug for" ^ func.fname ^ "------------");
+
+(* 为RA和旧S0预留空间 *)
+func_env.stack_offset := !(func_env.stack_offset) -8;
+(* 为被调用者保存寄存器预留空间 *)
+let open Reg in func_env.stack_offset := !(func_env.stack_offset) - (4 * List.length callee_saved_regs);
+
+(* 声明参数 *)
+let annotated_params = List.map (fun (ptype, pname) ->
+  declare_var func_env pname ptype
+) func.params in
+
+(* 分析函数体 *)
+let a_body = analyze_stmt (enter_scope func_env) func.body in
+(* 检查返回值路径 *)
+if func.ftype = TIntReturn && not (stmt_always_returns a_body) then
+  semantic_error ("Function '" ^ func.fname ^ "' must return a value on all control paths");
+
+print_endline ("# after the analyze_stmt:" ^ (string_of_int !(func_env.stack_offset))); 
+
+(* 计算最终的栈帧大小 *)
+let raw_size = abs !(func_env.stack_offset) in
+let frame_size = ((raw_size + 15) / 16) * 16 in (* ABI规则: 16字节对齐 *)
+print_endline ("# frame_size:" ^ (string_of_int frame_size));
+
+{ a_ftype = func.ftype; a_fname = func.fname; a_params = annotated_params; 
+  a_body = a_body; frame_size = frame_size }
 
 let analyze_program (program: Ast.program) : AnnotatedAst.program =
-  let env = {
-    scopes = [Hashtbl.create 50]; (* 全局作用域 *)
-    funcs = Hashtbl.create 50;
-    stack_offset = 0;
-    current_func = None;
-    loop_depth = 0;
-  } in
-  (* 第一遍：注册所有函数定义 *)
-  List.iter (fun func ->
-    if Hashtbl.mem env.funcs func.fname then
-      semantic_error ("Function '" ^ func.fname ^ "' is already defined");
-    Hashtbl.add env.funcs func.fname func
-  ) program;
+let env = {
+  scopes = [Hashtbl.create 50]; (* 全局作用域 *)
+  funcs = Hashtbl.create 50;
+  stack_offset = ref 0;
+  current_func = None;
+  loop_depth = 0;
+} in
+(* 第一遍：注册所有函数定义 *)
+List.iter (fun func ->
+  if Hashtbl.mem env.funcs func.fname then
+    semantic_error ("Function '" ^ func.fname ^ "' is already defined");
+  Hashtbl.add env.funcs func.fname func
+) program;
 
-  (* 检查 main 函数的合法性 *)
-  (try
-    let main_func = Hashtbl.find env.funcs "main" in
-    if main_func.params <> [] then semantic_error "Main function cannot have parameters"
-  with Not_found ->
-    semantic_error "Program must have a main function");
+(* 检查 main 函数的合法性 *)
+(try
+  let main_func = Hashtbl.find env.funcs "main" in
+  if main_func.params <> [] then semantic_error "Main function cannot have parameters"
+with Not_found ->
+  semantic_error "Program must have a main function");
 
-  (* 第二遍：逐个分析每个函数 *)
-  List.map (analyze_func_def env) program
+(* 第二遍：逐个分析每个函数 *)
+List.map (analyze_func_def env) program
 
 (* 主入口函数 *)
 let analyze program =

@@ -82,20 +82,20 @@ fi
 # 运行您的所有测试
 # run_test "test_fib.tc" 55
 # run_test "test_logic.tc" 42
-# run_test "../compiler_inputs_advanced/test_comment.tc" 1
-# run_test "../compiler_inputs_advanced/01_minimal.tc" 0
-# run_test "../compiler_inputs_advanced/02_assignment.tc" 3
-# run_test "../compiler_inputs_advanced/04_while_break.tc" 5
-# run_test "../compiler_inputs_advanced/05_function_call.tc" 7
-# run_test "../compiler_inputs_advanced/06_continue.tc" 4
-# run_test "../compiler_inputs_advanced/07_scope_shadow.tc" 1
-# run_test "../compiler_inputs_advanced/09_recursion.tc" 120
-# run_test "../compiler_inputs_advanced/10_void_fn.tc" 0
-# run_test "../compiler_inputs_advanced/11_precedence.tc" 14
-# run_test "../compiler_inputs_advanced/12_division_check.tc" 2
-# run_test "../compiler_inputs_advanced/13_scope_block.tc" 8
-# run_test "../compiler_inputs_advanced/14_nested_if_while.tc" 6
-# run_test "../compiler_inputs_advanced/15_multiple_return_paths.tc" 1
+run_test "../compiler_inputs_advanced/test_comment.tc" 1
+run_test "../compiler_inputs_advanced/01_minimal.tc" 0
+run_test "../compiler_inputs_advanced/02_assignment.tc" 3
+run_test "../compiler_inputs_advanced/04_while_break.tc" 5
+run_test "../compiler_inputs_advanced/05_function_call.tc" 7
+run_test "../compiler_inputs_advanced/06_continue.tc" 4
+run_test "../compiler_inputs_advanced/07_scope_shadow.tc" 1
+run_test "../compiler_inputs_advanced/09_recursion.tc" 120
+run_test "../compiler_inputs_advanced/10_void_fn.tc" 0
+run_test "../compiler_inputs_advanced/11_precedence.tc" 14
+run_test "../compiler_inputs_advanced/12_division_check.tc" 2
+run_test "../compiler_inputs_advanced/13_scope_block.tc" 8
+run_test "../compiler_inputs_advanced/14_nested_if_while.tc" 6
+run_test "../compiler_inputs_advanced/15_multiple_return_paths.tc" 1
 run_test "../compiler_inputs_advanced/16_complex_syntax.tc" 0
 run_test "../compiler_inputs_advanced/16_simple_syntax.tc" 0
 # run_test "../compiler_inputs_advanced/17_complex_expressions.tc" 159

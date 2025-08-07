@@ -10,6 +10,7 @@ type codegen_env = {
   mutable label_counter: int;
   mutable temp_offset: int; 
   current_func_name: string;
+  func_frame_size: int;
 }
 
 (* 增加loop context栈 *)
@@ -110,7 +111,7 @@ let rec gen_expr env (aexpr: AnnotatedAst.expr) target_reg =
     )
 
   | ACall (fname, a_args) ->
-      
+
       let num_args = List.length a_args in
 
       (* --- 步骤 1: 保存调用者需要保护的临时寄存器 (t0-t6) --- *)
@@ -149,7 +150,7 @@ let rec gen_expr env (aexpr: AnnotatedAst.expr) target_reg =
           add_instr env (Lw (reg, 0, SP));
           add_instr env (Addi (SP, SP, 4));
       ) reversed_caller_saved;
-
+      
       (* --- 步骤 6: 处理返回值 (总是在 a0 中) --- *)
       match aexpr.a_etype with 
       | TInt -> if target_reg <> A0 then
@@ -166,8 +167,6 @@ and gen_stmt env (astmt: AnnotatedAst.stmt) =
       (* 变量的地址已在 entry.sym_offset 中，只需生成初始化代码 *)
       gen_expr env a_init T0;
       add_instr env (Sw (T0, entry.sym_offset, S0));
-      (* 此处偏移需要移动4字节，因为frame_size在计算时没有算局部变量 *)
-      env.temp_offset <- env.temp_offset - 4;
   | AAssign (entry, ae) ->
       (* 赋值操作同样直接使用注解中的地址 *)
       gen_expr env ae T0;
@@ -225,7 +224,19 @@ and gen_stmt env (astmt: AnnotatedAst.stmt) =
       (* 作用域问题已在第二趟解决 *)
       List.iter (gen_stmt env) a_stmts
 
+(* 栈帧布局说明：
 
+栈从高地址向低地址：
+
+    [SP+frame_size] -> | return address (RA)     | <- offset = frame_size - 4
+                       | old frame pointer (S0)  | <- offset = frame_size - 8
+                       | callee-saved registers  | <- offset: ... -12, -16, ...
+                       | spilled params (>8th)   | <- offset: 0, 4, 8, ...
+                       | local variables         |
+                       | temporary variables     |
+                 SP -> |
+
+*)
 
 (* 接收 AnnotatedAst.func_def *)
 let gen_func env (afunc: AnnotatedAst.func_def) =
@@ -233,32 +244,40 @@ let gen_func env (afunc: AnnotatedAst.func_def) =
   let func_env = {
     instructions = [];
     label_counter = env.label_counter; (* 继承全局标签计数器 *)
-    temp_offset = -12 - ((List.length callee_saved_regs + List.length afunc.a_params) * 4); (* 从分析器计算好的基准开始 *)
+    temp_offset = afunc.frame_size; (* 从分析器计算好的基准开始 *)
     current_func_name = afunc.a_fname;
+    func_frame_size = afunc.frame_size;
   } in
   
-  add_instr func_env (Comment ("temp_offset:" ^ (string_of_int func_env.temp_offset)));
+  add_instr func_env (Comment ("---------frame_size:"^ (string_of_int func_env.func_frame_size) ^ "--------"));
+  add_instr func_env (Comment ("---------temp_offset:" ^ (string_of_int func_env.temp_offset)^ "---------"));
   (* 1. 函数序言 - 直接使用分析器计算好的栈帧大小 *)
   add_instr func_env (Label afunc.a_fname);
   add_instr func_env (Addi (SP, SP, -afunc.frame_size));
   add_instr func_env (Sw (RA, afunc.frame_size - 4, SP));
   add_instr func_env (Sw (S0, afunc.frame_size - 8, SP));
   add_instr func_env (Addi (S0, SP, afunc.frame_size));
+
+  (* 保存局部变量 -- 调用者策略 *)
   List.iteri (fun i reg ->
     add_instr func_env (Sw (reg, -12 - (i * 4), S0))
   ) callee_saved_regs;
 
+  add_instr func_env (Comment ("------------好戏现在开始-----------"));
+
   (* 2. 将传入的参数从 a0-a7 寄存器存入它们在栈帧中的指定位置 *)
-   List.iteri (fun i (param_entry: Analyzer.symbol_entry) ->
-    if i < List.length argument_regs then
-      (* 直接从 param_entry 中获取地址偏移量，不再需要查找！*)
-      add_instr func_env (Sw (List.nth argument_regs i, param_entry.sym_offset, S0))
-    else
-      (* 如果参数超过8个，它们的值已经在调用者的栈上传递过来了，
-         被调用者可以直接通过相对于 s0 的正向偏移量访问，
-         这部分逻辑如果需要可以后续添加。对于当前测试用例，此逻辑已足够。*)
-      ()
-  ) afunc.a_params;
+  let params_length = List.length afunc.a_params in 
+    let offset = afunc.frame_size in 
+      List.iteri (fun i (param_entry: Analyzer.symbol_entry) ->
+        if i < List.length argument_regs then
+          (* 直接从 param_entry 中获取地址偏移量，不再需要查找！*)
+          add_instr func_env (Sw (List.nth argument_regs i, param_entry.sym_offset, S0))
+        else
+          (* 参数超过8个 *)
+          let cross_offset = offset + 4 * (params_length - i - 1) in (* 注意i是从0开始的 *)
+          add_instr func_env (Lw (T2, cross_offset, SP)); (* 利用T2进行debug *)
+          add_instr func_env (Sw (T2, param_entry.sym_offset, S0));
+      ) afunc.a_params;
 
   (* 3. 生成函数体代码 *)
   gen_stmt func_env afunc.a_body;
@@ -284,6 +303,7 @@ let codegen_program (aprogram: AnnotatedAst.program) =
     label_counter = 0;
     temp_offset = 0; (* 全局临时偏移，虽然不太会用到 *)
     current_func_name = "";
+    func_frame_size = 0;
   } in
 
   (* 添加 .text 和 .globl main 指令 *)
