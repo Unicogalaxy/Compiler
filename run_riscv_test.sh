@@ -6,9 +6,8 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# --- 【核心修改 1】: 指向您下载的、独立的工具链 ---
-# 假设您已经将下载的工具链解压到了 /opt/riscv 目录
-# 请根据您实际的解压路径修改此变量
+
+# 工具路径
 TOOLCHAIN_PATH="/opt/riscv"
 COMPILER="${TOOLCHAIN_PATH}/bin/riscv32-unknown-elf-gcc"
 EMULATOR="qemu-riscv32"
@@ -98,8 +97,8 @@ run_test "../compiler_inputs_advanced/14_nested_if_while.tc" 6
 run_test "../compiler_inputs_advanced/15_multiple_return_paths.tc" 1
 run_test "../compiler_inputs_advanced/16_complex_syntax.tc" 0
 run_test "../compiler_inputs_advanced/16_simple_syntax.tc" 0
-# run_test "../compiler_inputs_advanced/17_complex_expressions.tc" 159
-# run_test "../compiler_inputs_advanced/18_many_variables.tc" 133
+run_test "../compiler_inputs_advanced/17_complex_expressions.tc" 159
+run_test "../compiler_inputs_advanced/18_many_variables.tc" 133
 run_test "../compiler_inputs_advanced/19_many_arguments.tc" 124
 run_test "../compiler_inputs_advanced/20_comprehensive.tc" 104
 

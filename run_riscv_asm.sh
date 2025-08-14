@@ -21,8 +21,8 @@ COMPILER_FLAGS=" --sysroot=${TOOLCHAIN_PATH}"
 
 run_exec(){
     echo -e "\n--- 测试 ${YELLOW}${test_file_path}${NC} ---"
-    local asm_file="19_many_arguments.s"
-    local exec_file="19_many_arguments"
+    local asm_file="18_many_variables.s"
+    local exec_file="18_many_variables"
 
     echo " 使用独立GCC进行汇编 (不使用 -nostdlib)..."
     "$COMPILER" $COMPILER_FLAGS -o ../results/exec_files/"$exec_file" ../results/asm_files/"$asm_file"
@@ -47,3 +47,19 @@ run_exec
 #     li a0, 123          ; 1. 设置退出码为 123
 #     li a7, 93           ; 2. 设置 a7 为 exit 的系统调用编号 (93)
 #     ecall               ; 3. 触发系统调用，程序立即终止
+
+#     # t1 = 300 假设已经算好
+#     li a7, 64           # write syscall
+#     li a0, 1            # fd=1 (stdout)
+#     la a1, msg          # buf
+#     li a2, len          # len
+#     ecall
+
+#     # exit(0)
+#     li a0, 0
+#     li a7, 93
+#     ecall
+
+# msg:
+#     .asciz "300\n"
+# len = . - msg

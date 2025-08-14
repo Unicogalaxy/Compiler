@@ -45,11 +45,13 @@ let rec gen_expr env (aexpr: AnnotatedAst.expr) target_reg =
   | ABinOp (ae1, op, ae2) -> 
       gen_expr env ae1 T0;
       env.temp_offset <- env.temp_offset - 4;
+      add_instr env (Addi (SP, SP, -4));
       let temp_addr = env.temp_offset in
       add_instr env (Sw (T0, temp_addr, S0));
       gen_expr env ae2 T1;
       add_instr env (Lw (T0, temp_addr, S0));
       env.temp_offset <- env.temp_offset + 4;
+      add_instr env (Addi (SP, SP, 4));
     (match op with
     (* 算术运算 *)
     | Add -> add_instr env (Add (target_reg, T0, T1))
@@ -244,11 +246,11 @@ let gen_func env (afunc: AnnotatedAst.func_def) =
   let func_env = {
     instructions = [];
     label_counter = env.label_counter; (* 继承全局标签计数器 *)
-    temp_offset = afunc.frame_size; (* 从分析器计算好的基准开始 *)
+    temp_offset = -afunc.frame_size; (* 从分析器计算好的基准开始 *)
     current_func_name = afunc.a_fname;
     func_frame_size = afunc.frame_size;
   } in
-  
+ 
   add_instr func_env (Comment ("---------frame_size:"^ (string_of_int func_env.func_frame_size) ^ "--------"));
   add_instr func_env (Comment ("---------temp_offset:" ^ (string_of_int func_env.temp_offset)^ "---------"));
   (* 1. 函数序言 - 直接使用分析器计算好的栈帧大小 *)
@@ -296,7 +298,7 @@ let gen_func env (afunc: AnnotatedAst.func_def) =
   env.label_counter <- func_env.label_counter;
   List.rev func_env.instructions
 
-(* 【核心修改】codegen_program 现在接收 AnnotatedAst.program *)
+(* 现在接收 AnnotatedAst.program *)
 let codegen_program (aprogram: AnnotatedAst.program) =
   let env = {
     instructions = [];
